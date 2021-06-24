@@ -107,6 +107,8 @@ def register_arguments(parser):
     )
     metadata_filter_group.add_argument('--min-date', type=numeric_date, help="minimal cutoff for date, the cutoff date is inclusive; may be specified as an Augur-style numeric date (with the year as the integer part) or YYYY-MM-DD")
     metadata_filter_group.add_argument('--max-date', type=numeric_date, help="maximal cutoff for date, the cutoff date is inclusive; may be specified as an Augur-style numeric date (with the year as the integer part) or YYYY-MM-DD")
+    metadata_filter_group.add_argument('--min-date-offset', type=str, help="date offset for minimal cutoff of date following the ISO-8601 syntax for durations (e.g. \"[n]Y[n]W[n]D\"), cutoff is ignored when --min-date is specified)")
+    metadata_filter_group.add_argument('--max-date-offset', type=str, help="date offset for maximal cutoff of date following the ISO-8601 syntax for durations (e.g. \"[n]Y[n]W[n]D\"), cutoff is ignored when --max-date is specified)")
     metadata_filter_group.add_argument('--exclude-ambiguous-dates-by', choices=['any', 'day', 'month', 'year'],
                                 help='Exclude ambiguous dates by day (e.g., 2020-09-XX), month (e.g., 2020-XX-XX), year (e.g., 200X-10-01), or any date fields. An ambiguous year makes the corresponding month and day ambiguous, too, even if those fields have unambiguous values (e.g., "201X-10-01"). Similarly, an ambiguous month makes the corresponding day ambiguous (e.g., "2010-XX-01").')
     metadata_filter_group.add_argument('--exclude', type=str, nargs="+", help="file(s) with list of strains to exclude")
@@ -344,13 +346,19 @@ def run(args):
 
     # filter by date
     num_excluded_by_date = 0
-    if (args.min_date or args.max_date) and 'date' in meta_columns:
+    if (args.min_date or args.max_date_offset or args.max_date or args.max_date_offset) and 'date' in meta_columns:
         dates = get_numerical_dates(meta_dict, fmt="%Y-%m-%d")
         tmp = {s for s in seq_keep if dates[s] is not None}
         if args.min_date:
             tmp = {s for s in tmp if (np.isscalar(dates[s]) or all(dates[s])) and np.max(dates[s])>=args.min_date}
+        elif args.min_date_offset:
+            min_date = numeric_date((datetime.date.today() - pd.Timedelta(args.min_date_offset)).strftime('%Y-%m-%d'))
+            tmp = {s for s in tmp if (np.isscalar(dates[s]) or all(dates[s])) and np.max(dates[s])>=min_date}
         if args.max_date:
             tmp = {s for s in tmp if (np.isscalar(dates[s]) or all(dates[s])) and np.min(dates[s])<=args.max_date}
+        elif args.max_date_offset:
+            max_date = numeric_date((datetime.date.today() - pd.Timedelta(args.max_date_offset)).strftime('%Y-%m-%d'))
+            tmp = {s for s in tmp if (np.isscalar(dates[s]) or all(dates[s])) and np.min(dates[s])<=max_date}
         num_excluded_by_date = len(seq_keep) - len(tmp)
         seq_keep = tmp
 
@@ -645,7 +653,7 @@ def run(args):
         print("\t%i of these were dropped because they were shorter than minimum length of %sbp" % (num_excluded_by_length, args.min_length))
     if args.exclude_ambiguous_dates_by and num_excluded_by_ambiguous_date:
         print("\t%i of these were dropped because of their ambiguous date in %s" % (num_excluded_by_ambiguous_date, args.exclude_ambiguous_dates_by))
-    if (args.min_date or args.max_date) and 'date' in meta_columns:
+    if (args.min_date or args.min_date_offset or args.max_date or args.max_date_offset) and 'date' in meta_columns:
         print("\t%i of these were dropped because of their date (or lack of date)" % (num_excluded_by_date))
     if args.non_nucleotide:
         print("\t%i of these were dropped because they had non-nucleotide characters" % (num_excluded_by_nuc))
