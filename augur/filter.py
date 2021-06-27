@@ -346,7 +346,7 @@ def run(args):
 
     # filter by date
     num_excluded_by_date = 0
-    if (args.min_date or args.max_date_offset or args.max_date or args.max_date_offset) and 'date' in meta_columns:
+    if (args.min_date or args.min_date_offset or args.max_date or args.max_date_offset) and 'date' in meta_columns:
         dates = get_numerical_dates(meta_dict, fmt="%Y-%m-%d")
         tmp = {s for s in seq_keep if dates[s] is not None}
         if args.min_date:
