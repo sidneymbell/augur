@@ -12,6 +12,7 @@ import sys
 import datetime
 from tempfile import NamedTemporaryFile
 import treetime.utils
+import isodate
 
 from .index import index_sequences
 from .io import open_file, read_sequences, write_sequences
@@ -352,12 +353,20 @@ def run(args):
         if args.min_date:
             tmp = {s for s in tmp if (np.isscalar(dates[s]) or all(dates[s])) and np.max(dates[s])>=args.min_date}
         elif args.min_date_offset:
-            min_date = numeric_date((datetime.date.today() - pd.Timedelta(args.min_date_offset)).strftime('%Y-%m-%d'))
+            if args.min_date_offset.startswith('P'):
+                min_date_offset = args.min_date_offset
+            else:
+                min_date_offset = 'P'+args.min_date_offset
+            min_date = numeric_date((datetime.date.today() - isodate.parse_duration(min_date_offset)).strftime('%Y-%m-%d'))
             tmp = {s for s in tmp if (np.isscalar(dates[s]) or all(dates[s])) and np.max(dates[s])>=min_date}
         if args.max_date:
             tmp = {s for s in tmp if (np.isscalar(dates[s]) or all(dates[s])) and np.min(dates[s])<=args.max_date}
         elif args.max_date_offset:
-            max_date = numeric_date((datetime.date.today() - pd.Timedelta(args.max_date_offset)).strftime('%Y-%m-%d'))
+            if args.max_date_offset.startswith('P'):
+                max_date_offset = args.max_date_offset
+            else:
+                max_date_offset = 'P'+args.max_date_offset
+            max_date = numeric_date((datetime.date.today() - isodate.parse_duration(max_date_offset)).strftime('%Y-%m-%d'))
             tmp = {s for s in tmp if (np.isscalar(dates[s]) or all(dates[s])) and np.min(dates[s])<=max_date}
         num_excluded_by_date = len(seq_keep) - len(tmp)
         seq_keep = tmp
